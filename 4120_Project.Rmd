@@ -4,7 +4,6 @@ author: ""
 date: ""
 output: pdf_document
 ---
-
 \begin{titlepage}
     \centering
     \vspace*{3cm}
@@ -27,11 +26,12 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 
 
 library(tidyverse)
+library(corrplot)
+library(ggplot2)
 library(reshape2)
 library(knitr)
 library(kableExtra)
 library(car)
-library(leaps)
 
 load("nhanes17.RData")
 
@@ -51,14 +51,108 @@ nhanes17$educ_lev <- as.factor(nhanes17$educ_lev)
 nhnames_num <- nhanes17[, sapply(nhanes17, is.numeric)]
 nhnames_num <- nhnames_num[, !colnames(nhnames_num) %in% "ID"]
 
-# Correlation matrix
-nh_cor <- nhanes17 %>% 
-  select(whr, waist, log_BMI, age, log_triglcd, bp.di.m,)
+# correlation matrix
 nhnames_num <- nhanes17[, sapply(nhanes17, is.numeric)]
 nhnames_num <- nhnames_num[, !colnames(nhnames_num) %in% "ID"]
 nh_cor      <- cor(nhnames_num, use = "pairwise.complete.obs")
 cor_melt    <- melt(nh_cor)
 cor_melt <- cor_melt[as.integer(cor_melt$Var1) < as.integer(cor_melt$Var2), ]
+
+```
+
+\newpage
+
+## Background
+
+National health and nutrition demographics help explore the factors influencing overall health. Understanding the leading factors in Health and Nutrition is consequential for identifying the underlying health trends within the sample. This comes from the National Health and Nutrition Examination Survey. This can yield actionable insights to inform specialized community efforts to address concerns within communities at greatest risk.
+
+Much of the data collected for the National Health and Nutrition Examination Survey is valuable information about a person's physical health. There are a variety of valuable health points, but the literature suggests that the waist-height ratio is a strong outcome variable of interest. The literature suggests that a higher WHR is associated with greater visceral fat in the stomach and abdominal regions. WHR is defined as waist circumference divided by height and captures fat distribution rather than just weight. WHR is linked with outcomes such as cardiovascular disease, diabetes, and metabolic syndrome, all diseases that kill millions yearly. Obesity is a major public health problem in the U.S, and WHR varies genuinely across demographic groups like sex, race/ethnicity, and age. Understanding predictors could inform screening and intervention.
+
+The NHANES is a nationally representative dataset of U.S. civilian adults. The data is collected through various methods, including surveys, physical health exams, and consultations. Numerous health data points are collected, but among the most important are smoking status and alcohol consumption habits, as well as uniquely identifiable information such as race, ethnicity, education level, and annual family income, which provide a clearer picture of the health trends emerging among U.S. civilian adults. NHANES is collected in standardized Mobile Examination Centers to ensure high-quality measurements.
+
+This study uses multiple linear regression on the NHANES 2017-2018 dataset to identify the demographic and clinical factors most strongly associated with WHR in a nationally representative sample of adults. The goal is to inform targeted screening and public health intervention strategies within the communities identified.
+
+## Research Problem
+
+This analysis investigated the following primary research question: which demographic, clinical, and lifestyle factors are significantly associated with the waist-to-height ratio in U.S. adults during the 2017 NHANES survey period? Secondary question includes: among significant risk factors, which modifiable factors, such as behavioral factors, after controlling for non-modifiable characteristics such as sex and race/ethnicity? And do socioeconomic indicators, including education and income, independently predict WHR beyond clinical variables? Together, these questions aim to distinguish between risk factors necessary for behavioral interventions to support targeted public health resource designation. Generally organized as follows:
+
+- Among the risk factors, which ones best predict the waist-to-height ratio, for modifiable and non-modifiable risk factors?
+- What behavior and lifestyle choices are associated with a higher WHR?
+- Which race and sex predictors are most significant, and which communities should be flagged for intervention?
+
+## Model and Method
+
+The analysis proceeded with the exploratory data analysis, variable selection, and model validation. The initial analysis examined the distributions of all continuous variables to assess model assumptions and identify any necessary transformations. BMI exhibited mild right skew (Shapiro-Wilk W = 0.945, p \< .001); this motivated a log transformation prior to modeling. After this transformation, the log(BMI) showed noticeable improvement in symmetry (W = 0.994), and this was used in place of raw BMI.
+
+Stepwise regression using AIC in both directions was applied to the full model. This identified a large set of significant predictors. The procedure allows for removing variables at each step. The global F-test confirmed that the final model explains significantly more variation in WHR than the null intercept-only model (F = 3795, df = 14, p \< 2.2e-16), which leads to the rejection of the $H_0: \beta_1 = \beta_2 = \cdots = \beta_{14} = 0$. For the CAP variable, a nested F-test was used to evaluate the marginal contribution, failing to reject $H_0: \beta_{CAP} = 0$ (F = 1.17, p = 0.28), validating its exclusion.
+
+The sample consisted of about 4,382 civilian adults from the NHANES 2017-2018 cycle. The sample was balanced by Sex. Age ranged from 18 to 80 years, exploring a broad representation of the adult lifespan across demographic factors. Race/Ethnicity is not equally distributed, with NH-White participants comprising the largest group, followed by Hispanic, NH-Black, and NH-Other. This is an intentional oversampling of the minority population to ensure the statistical power for subgroup analysis.
+
+Under the Gauss-Markov assumptions of linearity, exogeneity, homoscedasticity, and uncorrelated errors, the OLS estimator is the Best Linear Unbiased Estimator. This guarantees that the minimum variance is attained among all linear unbiased estimators. The residual variance estimated as $\hat{\sigma}^2$ yielded a residual standard error of .02875 on 4,462 degrees of freedom. Variance inflation factors were computed for all predictors in the final model, and all values were below 5, confirming no severe multicollinearity.
+
+*Best-subsets regression using Mallows* $C_p$ *and adjusted* $R^2$ *independently confirmed that all 14 predictors should be retained, with both criteria minimized at the full predictor set (Figure 4). Three influential observations (3459, 4712, 2399) were identified via Cook’s distance — these had large residuals but low leverage, confirming they are outliers in response space rather than predictor space, and were retained as plausible extreme values.*
+
+*A two-way ANOVA was conducted to examine whether mean WHR differed significantly by sex and race/ethnicity, and whether an interaction existed between these two factors. This was followed by Tukey HSD post-hoc comparisons to identify which specific group pairs differed significantly.*
+
+## Conclusion and Discussion
+
+*The final model achieved an adjusted R² of 0.924, indicating that approximately 92.4% of variation in WHR is explained by the 14 retained predictors. Waist circumference (beta = 0.004, p \< 0.001) and log(BMI) (beta = 0.128, p \< 0.001) were the strongest predictors, consistent with their direct mathematical relationship to WHR. Males showed significantly lower WHR than females (beta = -0.040, p \< 0.001), reflecting well-documented sex differences in fat distribution. Among race/ethnicity groups, Hispanic participants showed higher WHR relative to NH-White (beta = 0.011, p \< 0.001), while NH-Black participants showed lower WHR (beta = -0.005, p \< 0.001), suggesting meaningful demographic variation warranting targeted screening.*
+
+*Education showed a protective gradient — WHR decreased significantly at each attainment level above less than 9th grade, with college graduates showing the largest reduction (beta = -0.010, p \< 0.001). This monotonic pattern suggests educational attainment serves as a proxy for health-promoting behaviors and resource access. Higher income was also independently associated with lower WHR (beta = -0.0004, p = 0.004). Among modifiable behavioral factors, both drinking groups showed significantly lower WHR relative to non-drinkers, and greater physical activity was associated with lower WHR (beta = -0.001, p = 0.004).*
+
+***Limitations:** The cross-sectional NHANES design prevents causal inference. Stepwise selection inflates familywise Type I error — all findings are exploratory. Multicollinearity between waist and BMI persists despite VIF values below 5. Physical activity could not be log-transformed due to zero values, and residual skew in this predictor may affect inference for that coefficient.*
+
+*From a modeling perspective, the OLS framework assumes errors are uncorrelated and homoscedastic — the Scale-Location plot revealed a mild upward trend at higher fitted values, suggesting slight heteroscedasticity at the upper end of the WHR distribution. While not severe enough to invalidate inference at n = 4,382, this warrants acknowledgment. Additionally, the hat matrix* $H = X(X^\top X)^{-1}X^\top$ *was used implicitly in Cook's distance calculations; fitted values* $\hat{y} = Hy$ *represent the unique projection of y onto the column space of X, and the three flagged observations had large residuals* $(I-H)y$ *despite low leverage, confirming they are outliers in response space rather than predictor space.*
+
+*The two-way ANOVA confirmed significant main effects of both sex (F = X, p < .001) and race/ethnicity (F = X, p < .001) on WHR. The interaction term was [significant/not significant] (F = X, p = X), suggesting that sex differences in WHR [do/do not] vary across racial/ethnic groups.*
+
+***Future Work:** Interaction terms between sex and anthropometric predictors, longitudinal designs to establish causality, and analyses stratified by race/ethnicity or age group would strengthen these findings and inform community-specific interventions.*
+
+
+
+\newpage
+
+## Tables and Figures
+
+
+
+
+```{r EDA Continuous, include=FALSE}
+# BMI is skewed 
+shapiro.test(nhanes17$BMI)
+shapiro.test(nhanes17$log_BMI)
+
+shapiro.test(nhanes17$triglcd)
+
+shapiro.test(nhanes17$log_triglcd)
+summary(nhanes17)
+shapiro.test(nhanes17$phy.act)
+shapiro.test(nhanes17$log_triglcd)
+
+par(mfrow = c(1,2))
+hist(nhanes17$BMI)
+hist(nhanes17$log_BMI)
+
+shapiro.test(nhanes17$log_BMI)
+```
+
+
+
+```{r EDA - Continous, include=FALSE}
+nhanes17 |>
+  select(whr, waist, log_BMI, age, triglcd, bp.di.m, bp.sy.m, income) |>
+  summarise(across(everything(), list(
+    Mean   = ~round(mean(., na.rm = TRUE), 2),
+    SD     = ~round(sd(.,   na.rm = TRUE), 2),
+    Min    = ~round(min(.,  na.rm = TRUE), 2),
+    Max    = ~round(max(.,  na.rm = TRUE), 2)
+  ))) |>
+  pivot_longer(everything(),
+               names_to  = c("Variable", ".value"),
+               names_sep = "_(?=[^_]+$)") |>
+  kable(caption = "Summary Statistics for Key Continuous Variables",
+        booktabs = TRUE) |>
+  kable_styling(latex_options = c("striped", "hold_position"), font_size = 9)
 ```
 
 ```{r models, include=FALSE}
@@ -72,7 +166,6 @@ nhanes17$educ_lev <- as.factor(nhanes17$educ_lev)
 nhanes17$sex      <- as.factor(nhanes17$sex)
 nhanes17$race_eth <- as.factor(nhanes17$race_eth)
 
-# Model Building
 
 full_model <- lm(whr ~ . - ID -BMI -triglcd, data = nhanes17)
 null_model <- lm(whr ~ 1,      data = nhanes17)
@@ -81,70 +174,15 @@ mod_step   <- step(null_model, direction = "both",
 summary(mod_step)
 
 # Final Model - ALT droppped using nested F-test
-final_mod <- lm(formula = whr ~ waist + sex + 
-                  log_BMI + age + race_eth + educ_lev + 
-                  hvy.drk + bp.di.m + 
-                  log_triglcd + bp.sy.m + income + phy.act, 
-                data = nhanes17)
+final_mod <- lm(formula = whr ~ waist + sex + log_BMI + age + race_eth + educ_lev + hvy.drk + bp.di.m + log_triglcd + bp.sy.m + income + phy.act
+                , data = nhanes17)
 summary(final_mod)
-
-
-final_mod_no_bmi <- lm(formula = whr ~  sex + 
-                    age + race_eth + educ_lev + 
-                  hvy.drk + bp.di.m + 
-                  log_triglcd + bp.sy.m + income + phy.act, 
-                data = nhanes17)
-summary(final_mod_no_bmi)
-
-
-
-# Nested F-test: ALT
-anova(final_mod, mod_step)
-
-# Nested F-test: CAP
-mod_cap <- lm(whr ~ waist + sex + log_BMI + age + race_eth +
-                educ_lev + hvy.drk + bp.di.m + log_triglcd +
-                bp.sy.m + income + phy.act + CAP,
-              data = nhanes17)
-anova(final_mod, mod_cap)
-
-# VIF
-vif(final_mod)
-
-# Best subsets (uses log_triglcd — consistent with final model)
-best_sub     <- regsubsets(whr ~ waist + sex + race_eth + log_BMI + age +educ_lev + hvy.drk + triglcd + bp.di.m +
-                             bp.sy.m + phy.act + income,
-                           data = nhanes17, nvmax = 14)
-summary_best <- summary(best_sub)
-which.max(summary_best$adjr2)
-which.min(summary_best$cp)
-
-# Two-way ANOVA
-anova_model <- aov(whr ~ sex * race_eth, data = nhanes17)
-summary(anova_model)
-tukey   <- TukeyHSD(anova_model, which = "race_eth")
-tukey
 ```
 
-```{r Shapiro-Test, include=FALSE}
-# BMI is skewed 
-shapiro.test(nhanes17$BMI)
-shapiro.test(nhanes17$log_BMI)
-
-shapiro.test(nhanes17$triglcd)
-shapiro.test(nhanes17$log_triglcd)
-shapiro.test(nhanes17$phy.act)
-shapiro.test(nhanes17$log_triglcd)
-
-par(mfrow = c(1,2))
-hist(nhanes17$BMI)
-hist(nhanes17$log_BMI)
-
-shapiro.test(nhanes17$log_BMI)
-```
-
-```{r, include=FALSE}
+```{r}
 library(leaps)
+
+# best subsets on your final model variables
 best_sub <- regsubsets(whr ~ waist + sex + race_eth + log_BMI + age +
                          educ_lev + hvy.drk + triglcd + bp.di.m +
                          bp.sy.m + phy.act + income,
@@ -152,146 +190,92 @@ best_sub <- regsubsets(whr ~ waist + sex + race_eth + log_BMI + age +
 
 summary_best <- summary(best_sub)
 
+# plot adj R² and Cp side by side
+par(mfrow = c(1,2))
+plot(summary_best$adjr2, type = "b", xlab = "# Predictors", ylab = "Adj R²")
+plot(summary_best$cp, type = "b", xlab = "# Predictors", ylab = "Cp")
+abline(a = 1, b = 1, lty = 2)  # Cp = p line
+
 # which model is best by each criterion
 which.max(summary_best$adjr2)
 which.min(summary_best$cp)
 ```
 
-\newpage
 
-## Background
+```{r}
+# Two-way ANOVA — do mean WHR levels differ by sex and race/ethnicity?
+anova_model <- aov(whr ~ sex * race_eth, data = nhanes17)
+summary(anova_model)
 
-National health and nutrition demographics provide a basis for exploring factors that influence overall health. Identifying the primary determinants of health and nutrition is essential for uncovering fundamental health trends within a population sample. Data from the National Health and Nutrition Examination Survey (NHANES) can yield useful insights to direct targeted community interventions, particularly for populations at greatest risk.
+# Follow up — are group means actually different?
+TukeyHSD(anova_model, which = "race_eth")
 
-The National Health and Nutrition Examination Survey collects extensive data on physical health indicators. Among these, the waist-to-height ratio (WHR) has emerged in the literature as a particularly robust outcome variable. Elevated WHR is associated with increased visceral fat in the abdominal region. WHR, calculated as waist circumference divided by height, reflects fat distribution rather than overall body weight. Unlike BMI, which describes lean and fat mass, WHR captures information on central adiposity, the excessive accumulation of visceral fat around internal organs, and cardiometabolic risks more directly across diverse populations. This metric is linked to adverse health outcomes, including cardiovascular disease, diabetes, and metabolic syndrome, which together account for millions of deaths annually. Obesity is still a significant public health concern in the United States, and WHR varies substantially across demographic groups such as sex, race/ethnicity, and age. Identifying predictors of WHR may inform effective screening and intervention approaches.
+nhanes17 |>
+  ggplot(aes(x = race_eth, y = whr, fill = sex)) +
+  geom_boxplot(alpha = 0.8, outlier.size = 0.5) +
+  scale_fill_manual(values = c("cornflowerblue", "#FF6B6B")) +
+  theme_minimal() +
+  labs(title = "WHR by Race/Ethnicity and Sex",
+       x = "Race/Ethnicity", y = "Waist-Height Ratio") +
+  theme(axis.text.x = element_text(angle = 20, hjust = 1))
 
-The NHANES is a nationally representative dataset of U.S. civilian adults. The data is obtained through various methods, including surveys, physical health exams, and consultations. Numerous health data points are collected, but among the most important are smoking status and alcohol consumption habits, as well as uniquely identifiable information such as race, ethnicity, education level, and annual family income, which present a clearer picture of the health trends emerging among U.S. civilian adults. NHANES is collected in standardized Mobile Examination Centers to guarantee high-quality measurements. Its complex sampling design, including oversampling of minority subgroups, makes it well-suited for population-level exploratory inference across demographic strata.
 
-This study uses multiple linear regression on the NHANES 2017-2018 dataset to identify the demographic and clinical factors most strongly associated with WHR in a nationally representative sample of adults. The objective is to direct targeted screening and public health intervention approaches for identified communities.
+```
 
-## Research Problem
-
-This analysis addresses the following primary research question: Which demographic, clinical, and lifestyle factors are significantly associated with waist-to-height ratio among U.S. adults during the 2017 NHANES survey period? Secondary questions include: Among significant risk factors, which modifiable factors, such as behavioral variables, remain significant after controlling for non-modifiable characteristics such as sex and race/ethnicity? Additionally, do socioeconomic indicators, including education and income, independently predict WHR beyond clinical variables? Collectively, these questions aim to identify risk factors relevant to behavioral interventions and targeted public health resource allocation. The research questions are organized as follows:
-
--   Which risk factors, both modifiable and non-modifiable, best predict the waist-to-height ratio?
--   Which behavioral and lifestyle choices are associated with higher WHR?
--   Which race and sex predictors are most significant, and which communities need to be prioritized for intervention?
-
-## Model and Method
-
-The analysis included exploratory data analysis, variable selection, and model validation. Distributions of all continuous variables were examined to assess model assumptions and determine the need for transformations. Body mass index (BMI) exhibited mild right skew (Shapiro-Wilk W = 0.945, p \< .001), prompting a log transformation prior to modeling. The log-transformed BMI showed improved symmetry (W = 0.994) and was used in place of the raw BMI.
-
-Stepwise regression using the Akaike Information Criterion (AIC) in both directions was applied to the full model, yielding a substantial set of significant predictors. This procedure permits variable removal at each step. The global F-test confirmed that the final model explains significantly more variation in WHR than the null intercept-only model (F = 2957, df = 18, p \< 2.2e-16), leading to the rejection of the null hypothesis $H_0: \beta_1 = \beta_2 = \cdots = \beta_{18} = 0$. For the CAP variable, a nested F-test was used to evaluate its marginal contribution, failing to reject $H_0: \beta_{CAP} = 0$ (F = 0.63, p = 0.428), which supports its exclusion. ALT was similarly excluded via nested F-test (F = 2.73, p = 0.099), since its marginal significance was not significant at the 0.05 level.
-
-The sample comprised approximately 4,382 civilian adults from the NHANES 2017-2018 cycle, balanced by sex. Participants ranged in age from 18 to 80 years, providing broad representation over the adult lifespan. Race and ethnicity were not equally distributed, with non-Hispanic White participants forming the largest group, followed by Hispanic, non-Hispanic Black, and non-Hispanic Other. Intentional oversampling of minority populations was implemented to ensure adequate statistical power for subgroup analyses.
-
-Under the Gauss-Markov assumptions of linearity, exogeneity, homoscedasticity, and uncorrelated errors, the ordinary least squares (OLS) estimator is the Best Linear Unbiased Estimator, ensuring minimum variance among all linear unbiased estimators. This guarantees that among all estimators that are linear function of the observed data and unbiased, OLS produces the most precise estimates. The estimated residual variance ($\hat{\sigma}^2$) yielded a residual standard error of 0.02876 on 4,363 degrees of freedom. Variance inflation factors were below 10 for all predictors, with waist (VIF = 9.05) and log(BMI)(VIF = 8.53) the highest, indicating no critical multicollinearity. For exploratory purposes, removing these variables from the model considerably reduces the adjusted R-squared; they were kept, but this is a limitation worth noting. Using Mallows' $C_p$ and adjusted $R^2$ confirmed that all 14 predictors should be retained, as both criteria were minimized with the full set of predictors (Figure 1). Three influential observations (3459, 4712, 2399) were identified using Cook’s distance. These participants describe a large residual but low leverage, indicating they are outliers in the response space rather than the predictor, plausibly extreme values. A two-way analysis of variance (ANOVA) was conducted to assess whether mean WHR differed significantly by sex and race/ethnicity, and to evaluate the interaction among these factors. Tukey HSD post-hoc comparisons were subsequently performed to identify specific group pairs with significant differences.
-
-Four assumptions underlie the OLS model: linearity, zero-mean errors, homoscedasticity, and uncorrelated errors. The residuals vs Fitted plot (Figure 6) showed no systematic curvature, supporting linearity. The Q-Q plot revealed heavy tails, particularly at the lower end, indicating modest departures from normality. With the sample size sufficiently large (\~4,300), this is unlikely to systematically affect inference under the central limit theorem. For the two-way ANOVA, homogeneity of variance across the eight sex x race/ethnicity cells is assumed; the boxplots in Figure 5 suggest somewhat wider spread among NH-Black males, indicating care in interpreting cross-group comparisons.
-
-## Conclusion and Discussion
-
-This analysis found that a combination of demographic, socioeconomic, and lifestyle habits can explain over 90% of the variation in waist-to-height ratio (WHR) among U.S. adults. Waist circumference and BMI emerged as the most impactful predictors, which is consistent with their direct role in determining WHR. Their largest t-statistics (52.90 and 23.21, respectively) indicate strong independent contributions, even after controlling for all other predictors. Despite elevated VIFs, both remain essential to the final models' fit. Male participants exhibited significantly lower WHR than females ($\beta$ = -0.040, p < 0.001), the largest demographic effect in the model, aside from race/ethnicity predictors. 
-
-WHR decreased significantly at higher attainment levels (levels 3-5) relative to less than 9th grade, with college graduates showing the largest reduction ($\beta$ = -0.010, p \< 0.001); the 9th-11th grade level did not reach significance (p = 0.252). This suggests the protective effect strengthens at higher levels of educational attainment. Notably, the results also identify that educational attainment serves as a proxy for health-promoting behaviors and access to resources. Higher income was also independently associated with lower WHR ($\beta$ = -0.0004, p = 0.004), indicating economic resources facilitate healthier dietary patterns. Furthermore, among modifiable behavioral factors, both drinking groups showed significantly lower WHR than non-drinkers. Lastly, greater physical activity was associated with lower WHR ($\beta$ -0.001, p = 0.004), controlling for all other variables.
-
-Tukey HSD comparison revealed that NH-Other participants differed significantly from all other groups. Together, these findings identify waist circumference, BMI, sex, and race/ethnicity as the primary non-modifiable predictors of WHR, while education, income, alcohol consumption, and physical activity represent modifiable targets for intervention.
-
-Limitations: The cross-sectional NHANES design prevents causal inference. Stepwise selection inflates familywise Type I error, and all findings are exploratory. VIFS were below 10, with waist (9.05) and log(BMI) (8.53) the highest, indicating no critical multicollinearity. Physical activity could not be log-transformed due to zero values, and the residual skew of this predictor could affect inference for that coefficient. Additionally, NHANES uses a stratified probability sampling design, which may induce correlated errors and violate the independence assumption for both regression and ANOVA; survey-weighted methods were not applied, which represents a limitation.
-
-The OLS framework assumes errors are uncorrelated and homoscedastic. The Scale-Location plot revealed a mild upward trend at higher fitted values, suggesting slight heteroscedasticity behavior at the upper end of the WHR distribution. Although it is not severe enough to invalidate inference, it warrants acknowledgment.
-
-Additionally, the hat matrix $H = X(X^\top X)^{-1}X^\top$ was used in Cook’s distance calculations; fitted values $\hat{y} = Hy$ represent the unique projection of y onto the column space of X. The three flagged observations have large residuals $(I-H)y$ despite low leverage, confirming they are outliers in the response space rather than the predictor space.
-
-The two-way ANOVA confirmed significant main effects of both sex (F = 81.37, p \< .001) and race/ethnicity (F = 41.50, p \< .001) on WHR. The interaction term was significant (F = 17.67, p \< .001), indicating that sex differences in WHR do vary across racial/ethnic groups. The significant interaction suggests the sex gap in WHR varies in magnitude across racial/ethnic groups, as visible in Figure 5. 
-
-Future work should include interaction terms between sex and race/ethnicity, employ long-term studies to determine causality, and conduct analyses stratified by race/ethnicity or age group to further these outcomes and inform community-specific interventions.
-
-\newpage
 
 ## Tables and Figures
 
-```{r table 1, echo = FALSE}
-nhanes17 %>% 
-  select(whr, waist, log_BMI, age, log_triglcd, bp.di.m, bp.sy.m, income, phy.act) %>% 
-    summarise(across(everything(), list(
-      Mean = ~round(mean(., na.rm = TRUE), 2),
-      SD = ~round(sd(., na.rm = TRUE), 2),
-      Min = ~round(min(., na.rm = TRUE), 2),
-      Max = ~round(max(., na.rm = TRUE), 2)
-      ))) %>% 
-      pivot_longer(everything(),
-                   names_to = c("Variable", ".value"),
-                   names_pattern  = "^(.+)_(Mean|SD|Min|Max)$") %>% 
-      kable(caption = "Summary Statistics for Continuous Variables",
-            booktabs = TRUE) %>% 
-      kable_styling(latex_options = c("striped", "hold_position"), font_size = 9)
-```
+### Table 1: Summary Statistics
 
-## Table 2
+### Table 2: Final Model Coefficients
 
-```{r}
-summary(final_mod)$coefficients %>% 
-  as.data.frame() %>% 
-  round(5) %>% 
-  kable(caption = "Final Model Coefficients", booktabs = TRUE) %>% 
+```{r table3}
+summary(mod_step)$coefficients |>
+  as.data.frame() |>
+  round(6) |>
+  kable(caption = "Final Model Coefficients", booktabs = TRUE) |>
   kable_styling(latex_options = c("striped", "hold_position"), font_size = 9)
 ```
 
-```{r}
-vif(final_mod) %>% 
-  as.data.frame() %>% 
-  rownames_to_column("Predictor") %>% 
-  select(Predictor, GVIF) %>% 
-  rename(VIF = GVIF) %>%
-  mutate(VIF = round(VIF, 3)) %>% 
-  kable(caption = "Variance Inflation Factors", booktabs = TRUE) %>% 
-  kable_styling(latex_options = c("striped", "hold_position"), font_size = 9)
+### Fig 1: Correlation Matrix
+
+```{r fig1, fig.cap="Correlation Matrix"}
+cor_melt <- melt(nh_cor)
+
+cor_melt <- cor_melt[as.integer(cor_melt$Var1) < as.integer(cor_melt$Var2), ]
+
+ggplot(cor_melt, aes(Var1, Var2, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(low = "midnightblue", mid = "cornflowerblue", high = "#FF6B6B",
+                       midpoint = 0, limits = c(-1, 1)) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = .5, size = 8),
+        axis.text.y = element_text(size = 8)) +
+  labs(title = "Correlation Matrix", x = NULL, y = NULL)
+
 ```
 
-```{r table4, echo=FALSE}
-anova_model <- aov(whr ~ sex * race_eth, data = nhanes17)
+### Fig 3: Distributions of Continous Predictors
 
-summary(anova_model)[[1]] %>% 
-  as.data.frame() %>% 
-  kable(caption = "Two-Way ANOVA: WHR by Sex and Race/Ethnicity", booktabs= TRUE) %>% 
-  kable_styling(latex_options = c("striped", "hold_position"), font_size = 9)
-```
+```{r fig 3, fig.height=6, fig.width=9, fig.cap="Distribution of key continuous variables"}
 
-```{r fig1, fig.height=4, fig.width=9, fig.cap="Best subsets regression: adjusted R-squared and Mallows Cp by number of predictors"}
-
-par(mfrow = c(1, 2))
-plot(summary_best$adjr2, type = "b", 
-     xlab = "# of predictors", ylab = "Adj R-Squared")
-plot(summary_best$cp, type = "b", 
-     xlab = "# of predictors", ylab  = "Cp")
-abline(a = 1, b = 1, lty = 2)
-```
-
-```{r fig2, fig.height=6, fig.width=13, fig.cap="Correlation Matrix"}
-ggplot(cor_melt, aes(Var1, Var2, fill = value))+
-  geom_tile(color = "white")+
-  scale_fill_gradient2(low = "midnightblue", mid = "cornflowerblue", high = "maroon",
-                      midpoint = 0, limits = c(-1, 1))+
-  theme_minimal() + 
-  theme(axis.text.x = element_text(angle = 25, hjust = 1, vjust = 0.5, size = 6),
-        axis.text.y = element_text(size = 8))+
-  labs(x = NULL, y = NULL)
-```
-
-```{r fig3, fig.height=6, fig.width=9, fig.cap="Distribution of key Continuous variables"}
-nhanes17 %>% 
-  select(whr, waist, log_BMI, age, log_triglcd, bp.di.m, bp.sy.m, income, phy.act) %>% 
-  pivot_longer(everything(),
-               names_to = "variable",
-               values_to = "value") %>% 
-  ggplot(aes(x = value))+
-  geom_histogram(bins = 30, fill = "cornflowerblue", color = "white")+
-  facet_wrap(~variable, scales = "free")+
-  theme_minimal()+ theme(strip.text = element_text(face = "bold"))+
-  labs(title = "Distribution of Continuous Variables",
+nhanes17 |>
+  select(whr, waist, log_BMI, age, log_triglcd, 
+         bp.di.m, bp.sy.m, income, phy.act) |>
+  pivot_longer(everything(), 
+               names_to = "variable", 
+               values_to = "value") |>
+  ggplot(aes(x = value)) +
+  geom_histogram(bins = 30, fill = "cornflowerblue",
+                 color = "white", alpha = 0.85) +
+  facet_wrap(~variable, scales = "free") +
+  theme_minimal() +
+  theme(strip.text = element_text(face = "bold")) +
+  labs(title = "Distributions of Continuous Variables", 
        x = NULL, y = "Frequency")
 ```
+
+### Fig 4: Distributions of Categorical Predictors
 
 ```{r fig4, fig.height=6, fig.width=10, fig.cap="Distribution of key categorical variables"}
 # select your categorical predictors
@@ -302,37 +286,53 @@ nhanes17 |>
   ggplot(aes(x = value, fill = variable)) +
   geom_bar(alpha = 0.85, color = "white") +
   facet_wrap(~variable, scales = "free") +
-  scale_fill_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Set2") +
   theme_minimal() +
   theme(legend.position = "none",
         strip.text = element_text(face = "bold"),
         axis.text.x = element_text(angle = 20, hjust = 1)) +
   labs(title = "Distributions of Categorical Variables", x = NULL, y = "Count")
+
+# ggplot(nhanes17, aes(x = sex, y = whr, fill = sex)) +
+#   geom_boxplot(alpha = 0.7, outlier.size = 0.5) +
+#   scale_fill_manual(values = c("cornflowerblue", "#FF6B6B")) +
+#   theme_minimal() +
+#   labs(title = "WHR by Sex", x = "Sex", y = "Waist-Height Ratio") +
+#   theme(legend.position = "none")
+# 
+# ggplot(nhanes17, aes(x = race_eth, y = whr, fill = race_eth)) +
+#   geom_boxplot(alpha = 0.7, outlier.size = 0.5) +
+#   scale_fill_brewer(palette = "Set2") +
+#   theme_minimal() +
+#   labs(title = "WHR by Race/Ethnicity", x = "Race/Ethnicity",
+#        y = "Waist-Height Ratio") +
+#   theme(legend.position = "none",
+#         axis.text.x = element_text(angle = 20, hjust = 1))
+
 ```
 
-```{r fig5, fig.height=5, fig.width=8, fig.cap="WHR by race/ethnicity and sex (unadjusted)"}
-nhanes17 %>% 
-  ggplot(aes(x = race_eth, y = whr, fill = sex)) +
-  geom_boxplot(outlier.size = 0.5) +
-  scale_fill_manual(values = c("cornflowerblue", "yellow3"),
-                    labels = c("Female", "Male")) +
-  theme_minimal() +
-  labs(title = "WHR by Race/Ethnicity and Sex",
-       x = "Race/Ethnicity", y = "Waist-Height Ratio",
-       fill = "Sex") +
-  theme(axis.text.x = element_text(face = "bold"))
+### Figure : Regression Diagnostics
+
+```{r fig5, fig.cap="Regression Diagnostics"}
+par(mfrow= c(2,2))
+plot(mod_step)
 ```
 
-```{r fig6, fig.height=6, fig.width=8, fig.cap="Regression diagnostic plots for final model"}
-par(mfrow = c(2, 2))
-plot(final_mod)
+### Table 3: Varinace Inflation Factos
+
+```{r fig6, fig.cap="Regression Diagnostics"}
+vif(mod_step)
 ```
+
+### Table 3: Two-Way ANOVA Table
+
+### Fig 6: WHR by Sex and Race/Ethnicity ← the boxplot above
 
 \newpage
 
 ## Appendix: R Code
 
-The following code reproduces all analysis presented in this report. The Code is organized as follows: data preparation, exploratory data analysis, model fitting, model validation, and visualization.
+The following core reproduces all analysis presented in this report. The Code is organized as follows: data preparation, exploratory data analysis, model fitting, model validation, and visualization.
 
 ```{r, ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE}
 ```
